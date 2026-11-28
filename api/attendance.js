@@ -81,14 +81,28 @@ export default async function handler(req, res) {
         }
       }
       let nisn = String(body.nisn || '').trim();
-      if (!nisn && uid) nisn = String((await db.getItem('rfid_map', uid)) || '');
-      if (!nisn) {
+      let member = null;
+      if (!nisn && uid) {
+        const mapped = await db.getItem('rfid_map', uid);
+        nisn = (mapped && typeof mapped === 'object') ? String(mapped.nisn || '') : String(mapped || '');
+      }
+      if (nisn) member = await db.getItem('members', nisn);
+
+      // Fallback & auto-heal jika rfid_map lama kehilangan angka 0 di depan
+      if (!member && uid) {
+        const allMembers = await db.getAll('members');
+        const found = Object.values(allMembers).find(m => m.uid === uid);
+        if (found) {
+          member = found;
+          nisn = found.nisn;
+          await db.setItem('rfid_map', uid, { nisn });
+        }
+      }
+      if (!member) {
         if (uid) await db.pushLog('unknown_logs', { uid, deviceId, time: getWibNow().full }, 200);
         return res.status(200).json({ status: 'UNKNOWN', uid });
       }
 
-      const member = await db.getItem('members', nisn);
-      if (!member) return res.status(200).json({ status: 'UNKNOWN', uid });
 
       const now = getWibNow();
       const offlineTime = String(body.offlineTime || '').trim();

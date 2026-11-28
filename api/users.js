@@ -121,7 +121,16 @@ export default async function handler(req, res) {
       const type = body.type === 'guru' ? 'guru' : 'siswa';
       const uid = String(body.uid || '').trim().toUpperCase();
       const pin = String(body.pin || '').trim();
-      if (!nisn || !name) return res.status(400).json({ error: 'NISN/NIP dan Nama wajib diisi' });
+
+      if (!nisn || !name) return res.status(400).json({ error: 'NISN/NIP dan Nama wajib diisi.' });
+      if (!/^\d{1,18}$/.test(nisn)) return res.status(400).json({ error: 'NISN/NIP hanya boleh berisi angka.' });
+      if (pin && !/^\d{4,6}$/.test(pin)) return res.status(400).json({ error: 'PIN harus berupa 4 sampai 6 digit angka.' });
+
+      if (uid) {
+        const allMembers = await db.getAll('members');
+        const dup = Object.values(allMembers).find(m => m.uid === uid && m.nisn !== nisn);
+        if (dup) return res.status(409).json({ error: `UID ${uid} sudah terdaftar pada ${dup.name} (NISN: ${dup.nisn}).` });
+      }
 
       const existing = await db.getItem('members', nisn);
       if (existing?.uid && existing.uid !== uid) await db.delItem('rfid_map', existing.uid);
@@ -132,7 +141,8 @@ export default async function handler(req, res) {
         points: Number(existing?.points || 0)
       };
       const tasks = [db.setItem('members', nisn, record)];
-      if (uid) tasks.push(db.setItem('rfid_map', uid, nisn));
+      // Simpan sebagai objek { nisn } agar Upstash Redis tidak menghapus angka 0 di depan
+      if (uid) tasks.push(db.setItem('rfid_map', uid, { nisn }));
       await Promise.all(tasks);
       return res.status(200).json({ ok: true });
     }
@@ -149,7 +159,7 @@ export default async function handler(req, res) {
         const uid = String(r.uid || '').trim().toUpperCase();
         const pin = String(r.pin || nisn.slice(-6)).trim();
         memberBatch[nisn] = { nisn, name, kelas: String(r.kelas || '').trim().toUpperCase(), type: r.type === 'guru' ? 'guru' : 'siswa', uid, pinHash: hashSecret(pin), points: 0 };
-        if (uid) rfidBatch[uid] = nisn;
+        if (uid) rfidBatch[uid] = { nisn };
         imported++;
       }
       if (imported > 0) {

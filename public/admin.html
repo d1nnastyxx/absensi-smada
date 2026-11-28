@@ -110,7 +110,7 @@
         <div class="card">
           <h3>Tambah / Edit Siswa & Guru</h3>
           <form id="memberForm">
-            <label>NISN / NIP</label><input id="mNisn" required />
+            <label>NISN / NIP (Hanya Angka)</label><input id="mNisn" required inputmode="numeric" pattern="\d{1,18}" maxlength="18" oninput="this.value=this.value.replace(/\D/g,'')" placeholder="Contoh: 0081234567" />
             <label>Nama Lengkap</label><input id="mName" required />
             <label>Kelas</label><input id="mKelas" placeholder="XII-A" />
             <label>UID Kartu RFID (opsional)</label>
@@ -119,7 +119,7 @@
               <button type="button" id="btnScanUid" style="margin:0;">Scan ESP32</button>
             </div>
             <div id="scanUidHint" class="muted" hidden style="margin-bottom:8px;">Menunggu tap kartu di ESP32 (maks 2 menit)...</div>
-            <label>PIN Baru (kosongkan jika tidak diubah)</label><input id="mPin" />
+            <label>PIN Baru (4–6 Digit Angka, kosongkan jika tetap)</label><input id="mPin" type="password" inputmode="numeric" pattern="\d{4,6}" maxlength="6" oninput="this.value=this.value.replace(/\D/g,'')" placeholder="Maks 6 digit angka" />
             <button class="primary" type="submit">Simpan</button>
           </form>
           <hr style="border-color:#2a2f3a;margin:14px 0;" />
