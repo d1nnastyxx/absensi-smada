@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Kesiswaan — Root / Super Admin & Viewer</title>
+  <link rel="stylesheet" href="/app.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card row between">
+      <div><h2>Dashboard Kesiswaan SMADA</h2><div id="aUser" class="muted">-</div></div>
+      <button id="btnOut">Keluar</button>
+    </div>
+
+    <div id="aMsg" class="msg" hidden></div>
+
+    <div class="tabs">
+      <button class="active" data-tab="tabAtt">1. Rekap Absensi</button>
+      <button data-tab="tabViol">2. Pelanggaran & Penghargaan</button>
+      <button data-tab="tabRep" id="btnTabRep">3. Laporan Rahasia</button>
+      <button data-tab="tabReg" id="btnTabReg">4. Link Register & ACC</button>
+      <button data-tab="tabMaster" id="btnTabMaster">5. Master Siswa & Staff</button>
+    </div>
+
+    <!-- TAB 1: ABSENSI + REKAP WA -->
+    <section id="tabAtt" class="card">
+      <div class="row between" style="margin-bottom:12px;">
+        <h3>Rekap Absensi Harian</h3>
+        <div class="row">
+          <input id="attDate" type="date" style="width:auto;margin:0;" />
+          <input id="attKelas" placeholder="Filter Kelas (XII-A)" style="width:160px;margin:0;" />
+          <button id="btnLoadAtt">Muat</button>
+          <button id="btnCopyWa">Salin Format WA</button>
+          <button id="btnCsvAtt" class="primary">Download CSV</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>NISN</th><th>Nama</th><th>Kelas</th><th>Status</th><th>Masuk</th><th>Pulang</th></tr></thead><tbody id="attBody"></tbody></table>
+      </div>
+    </section>
+
+    <!-- TAB 2: PELANGGARAN, PENGHARGAAN & ACC -->
+    <section id="tabViol" hidden>
+      <div class="card" id="rewardCard">
+        <h3>Beri Penghargaan (Pengurangan Poin)</h3>
+        <form id="rewardForm" class="row">
+          <select id="rwStudent" style="flex:1;min-width:200px;margin:0;" required></select>
+          <select id="rwType" style="flex:1;min-width:220px;margin:0;" required></select>
+          <button class="primary" type="submit">Kurangi Poin</button>
+        </form>
+      </div>
+      <div class="card">
+        <div class="row between" style="margin-bottom:12px;">
+          <h3>Riwayat Pelanggaran & Persetujuan Waka</h3>
+          <button id="btnResetYear" class="danger">Reset Poin Kenaikan Kelas</button>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr><th>Waktu</th><th>Siswa</th><th>Keterangan</th><th>Poin</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="violBody"></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: LAPORAN RAHASIA -->
+    <section id="tabRep" class="card" hidden>
+      <h3>Laporan Rahasia & Bukti (Khusus Super Admin)</h3>
+      <div class="table-wrap">
+        <table><thead><tr><th>Waktu</th><th>Pelapor</th><th>Terlapor</th><th>Kronologi & Bukti</th><th>Status</th></tr></thead><tbody id="repBody"></tbody></table>
+      </div>
+    </section>
+
+    <!-- TAB 4: LINK REGISTER BERKUOTA & ANTREAN ACC -->
+    <section id="tabReg" hidden>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Buat Link / QR Register per Kelas</h3>
+          <form id="inviteForm">
+            <label>Nama Kelas</label><input id="invKelas" required placeholder="Contoh: XII-A" />
+            <label>Batas Kuota Siswa</label><input id="invQuota" type="number" min="1" max="100" value="36" required />
+            <label>Masa Aktif Link (Jam)</label><input id="invHours" type="number" min="1" max="168" value="24" required />
+            <button class="primary" type="submit">Buat Link & QR Kelas</button>
+          </form>
+          <div id="qrPreviewWrap" hidden style="margin-top:12px;text-align:center;">
+            <div id="invQrBox" style="background:#fff;padding:10px;display:inline-block;border-radius:8px;"></div>
+            <div id="invUrlText" class="muted" style="word-break:break-all;margin-top:6px;"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="row between" style="margin-bottom:10px;">
+            <h3>Antrean Verifikasi Pendaftar</h3>
+            <button id="btnAccAll" class="primary">ACC Semua</button>
+          </div>
+          <div class="table-wrap">
+            <table><thead><tr><th>NISN</th><th>Nama & Kelas</th><th>Aksi</th></tr></thead><tbody id="pendBody"></tbody></table>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Daftar Link Undangan Aktif</h3>
+        <div class="table-wrap">
+          <table><thead><tr><th>Kode</th><th>Kelas</th><th>Terpakai / Kuota</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="invBody"></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: MASTER SISWA & MANAJEMEN STAFF AMAN -->
+    <section id="tabMaster" hidden>
+      <div class="grid-2">
+        <div class="card">
+          <h3>Tambah / Edit Siswa & Guru</h3>
+          <form id="memberForm">
+            <label>NISN / NIP</label><input id="mNisn" required />
+            <label>Nama Lengkap</label><input id="mName" required />
+            <label>Kelas</label><input id="mKelas" placeholder="XII-A" />
+            <label>UID Kartu RFID (opsional)</label>
+            <div class="row" style="margin-bottom:8px;">
+              <input id="mUid" style="flex:1;margin:0;" placeholder="Ketik atau klik Scan dari ESP32" />
+              <button type="button" id="btnScanUid" style="margin:0;">Scan ESP32</button>
+            </div>
+            <div id="scanUidHint" class="muted" hidden style="margin-bottom:8px;">Menunggu tap kartu di ESP32 (maks 2 menit)...</div>
+            <label>PIN Baru (kosongkan jika tidak diubah)</label><input id="mPin" />
+            <button class="primary" type="submit">Simpan</button>
+          </form>
+          <hr style="border-color:#2a2f3a;margin:14px 0;" />
+          <label>Import Massal CSV (Format: nisn,nama,kelas,uid)</label>
+          <input id="csvFile" type="file" accept=".csv" />
+        </div>
+        <div class="card">
+          <h3>Tambah Akun Staff</h3>
+          <form id="staffForm">
+            <label>Username</label><input id="sUser" required />
+            <label>Nama Lengkap</label><input id="sName" required />
+            <label>Peran</label>
+            <select id="sRole">
+              <option value="tatib">Tim Tatib / UKS</option>
+              <option value="viewer">Kepala Sekolah (Viewer)</option>
+              <option value="super_admin" id="optSuperAdmin">Super Admin (Khusus Root Admin)</option>
+            </select>
+            <label>Password Staff Baru (min. 4 karakter)</label><input id="sPass" type="password" minlength="4" required />
+            <button class="primary" type="submit">Simpan Staff</button>
+          </form>
+          <div id="credBox" class="msg" hidden style="margin-top:10px;">
+            <div id="credText"></div>
+            <button id="btnCopyCred" type="button" style="margin-top:6px;">Salin Kredensial</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Daftar Akun Staff (Password Terenkripsi)</h3>
+        <div class="table-wrap">
+          <table><thead><tr><th>Username</th><th>Nama</th><th>Peran</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="staffBody"></tbody></table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Audit Log Perubahan Akun Staff</h3>
+        <div class="table-wrap">
+          <table><thead><tr><th>Waktu</th><th>Pelaku</th><th>Aksi</th><th>Target</th><th>Detail</th></tr></thead><tbody id="auditBody"></tbody></table>
+        </div>
+      </div>
+
+      <div id="espRootWrap" hidden>
+        <div class="card">
+          <div class="row between" style="margin-bottom:10px;">
+            <h3>Monitoring Alat ESP32 (Multi-Device)</h3>
+            <button type="button" id="btnRefDev">Refresh Alat</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Device ID</th><th>IP Lokal</th><th>Antrean Offline</th><th>UID Terakhir</th><th>Terakhir Sync</th></tr></thead>
+              <tbody id="devBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Pengaturan Multi-WiFi ESP32 (Khusus Root Admin)</h3>
+          <p class="muted" style="margin-top:0;">ESP32 akan otomatis menarik daftar WiFi ini saat boot atau tiap 10 menit.</p>
+          <form id="wifiForm">
+            <div class="grid-2">
+              <div><label>Prioritas 1 — SSID</label><input id="wp1s" placeholder="WiFi Utama 1" /></div>
+              <div><label>Prioritas 1 — Password</label><input id="wp1p" type="password" placeholder="Password P1" /></div>
+              <div><label>Prioritas 2 — SSID</label><input id="wp2s" placeholder="WiFi Utama 2" /></div>
+              <div><label>Prioritas 2 — Password</label><input id="wp2p" type="password" placeholder="Password P2" /></div>
+              <div><label>Cadangan 1 — SSID</label><input id="wb1s" placeholder="WiFi Cadangan 1" /></div>
+              <div><label>Cadangan 1 — Password</label><input id="wb1p" type="password" placeholder="Password B1" /></div>
+              <div><label>Cadangan 2 — SSID</label><input id="wb2s" placeholder="WiFi Cadangan 2" /></div>
+              <div><label>Cadangan 2 — Password</label><input id="wb2p" type="password" placeholder="Password B2" /></div>
+              <div><label>Cadangan 3 — SSID</label><input id="wb3s" placeholder="WiFi Cadangan 3" /></div>
+              <div><label>Cadangan 3 — Password</label><input id="wb3p" type="password" placeholder="Password B3" /></div>
+            </div>
+            <button class="primary" type="submit" style="margin-top:10px;">Simpan Konfigurasi Multi-WiFi</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row between" style="margin-bottom:10px;">
+          <h3>Log Kartu Tidak Dikenal</h3>
+          <button type="button" id="btnClearUnk" class="danger">Bersihkan Log Asing</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Waktu</th><th>Alat</th><th>UID Kartu</th><th>Aksi</th></tr></thead>
+            <tbody id="unkBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="critLogWrap" class="card" hidden>
+        <h3>Pembersihan Log Penting (Khusus Root Admin)</h3>
+        <p class="muted" style="margin-top:0;">Memerlukan konfirmasi password Root Admin dan akan tercatat di Audit Log.</p>
+        <div class="row">
+          <button type="button" data-clog="attendance" class="danger">Hapus Absensi (Tgl Tab 1)</button>
+          <button type="button" data-clog="violations" class="danger">Hapus Log Pelanggaran</button>
+          <button type="button" data-clog="reports" class="danger">Hapus Log Laporan</button>
+          <button type="button" data-clog="audit_staff" class="danger">Hapus Audit Log</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Daftar Siswa & Status Sanksi (0–250 Poin)</h3>
+        <div class="table-wrap"><table><thead><tr><th>NISN</th><th>Nama & Kelas</th><th>Poin & Sanksi</th><th>Aksi</th></tr></thead><tbody id="memBody"></tbody></table></div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module">
+    import { $, esc, api, requireRole, logout, getToken } from '/app.js';
+    const user = requireRole(['root_admin', 'super_admin', 'viewer']);
+    const isRoot = user?.role === 'root_admin';
+    const isAdmin = isRoot || user?.role === 'super_admin';
+    $('btnOut').onclick = logout;
+    let lastAttRecords = [];
+    let membersCache = [];
+    let reportsCache = [];
+    let lastCredString = '';
+
+    const notify = (t) => { $('aMsg').textContent = t; $('aMsg').hidden = false; window.scrollTo({ top: 0, behavior: 'smooth' }); };
+    function askModal(label, { type = 'text', defaultVal = '' } = {}) {
+      return new Promise((resolve) => {
+        const dlg = $('promptModal');
+        const inp = $('promptInput');
+        $('promptLabel').textContent = label;
+        inp.type = type;
+        inp.value = defaultVal;
+        const finish = (val) => {
+          inp.blur();
+          dlg.close();
+          resolve(val);
+        };
+        $('promptCancel').onclick = () => finish(null);
+        $('promptForm').onsubmit = (ev) => { ev.preventDefault(); finish(inp.value); };
+        dlg.showModal();
+        setTimeout(() => inp.focus(), 50);
+      });
+    }
+    const showCred = (u, p) => {
+      lastCredString = `Username: ${u}\nPassword: ${p}`;
+      $('credText').textContent = `Kredensial siap salin -> ${u} / ${p}`;
+      $('credBox').hidden = false;
+    };
+    $('btnCopyCred').onclick = async () => {
+      await navigator.clipboard.writeText(lastCredString);
+      notify('Kredensial disalin ke clipboard!');
+    };
+
+    if (!isAdmin) {
+      ['btnTabRep', 'btnTabReg', 'btnTabMaster', 'btnResetYear', 'rewardCard'].forEach(id => { if ($(id)) $(id).hidden = true; });
+    }
+    if (!isRoot && $('optSuperAdmin')) {
+      $('optSuperAdmin').disabled = true;
+      $('optSuperAdmin').textContent = 'Super Admin (Terkunci - Khusus Root Admin)';
+    }
+
+    document.querySelectorAll('.tabs button').forEach(b => {
+      b.onclick = () => {
+        document.querySelectorAll('.tabs button').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        ['tabAtt', 'tabViol', 'tabRep', 'tabReg', 'tabMaster'].forEach(id => { $(id).hidden = id !== b.dataset.tab; });
+      };
+    });
+
+    async function loadStaffAndAudit() {
+      if (!isAdmin) return;
+      const res = await api('/api/auth');
+      $('staffBody').innerHTML = (res.staff || []).map(s => {
+        const canTouch = isRoot || s.role !== 'super_admin';
+        return `
+          <tr>
+            <td><code>${esc(s.username)}</code></td>
+            <td>${esc(s.fullName)}</td>
+            <td><span class="badge">${esc(s.role)}</span></td>
+            <td><span class="badge">${s.active ? 'Aktif' : 'Nonaktif'}</span></td>
+            <td>${canTouch
+              ? `<button data-rsts="${esc(s.username)}">Reset Pass</button> <button data-togs="${esc(s.username)}">${s.active ? 'Nonaktifkan' : 'Aktifkan'}</button> <button data-dels="${esc(s.username)}" class="danger">Hapus</button>`
+              : '<span class="muted">Dilindungi Root</span>'}</td>
+          </tr>
+        `;
+      }).join('') || '<tr><td colspan="5" class="muted">Belum ada akun staff tambahan.</td></tr>';
+
+      $('auditBody').innerHTML = (res.auditLogs || []).map(a =>
+        `<tr><td>${esc(a.time)}</td><td>${esc(a.actor)}</td><td><span class="badge">${esc(a.action)}</span></td><td><code>${esc(a.target)}</code></td><td>${esc(a.detail)}</td></tr>`
+      ).join('') || '<tr><td colspan="5" class="muted">Belum ada aktivitas.</td></tr>';
+    }
+
+    async function loadAtt() {
+      const qs = new URLSearchParams();
+      if ($('attDate').value) qs.set('date', $('attDate').value);
+      if ($('attKelas').value.trim()) qs.set('kelas', $('attKelas').value.trim());
+      const res = await api(`/api/attendance?${qs}`);
+      $('attDate').value = res.date;
+      lastAttRecords = res.records || [];
+      $('attBody').innerHTML = lastAttRecords.map(r =>
+        `<tr><td>${esc(r.nisn)}</td><td>${esc(r.name)}</td><td>${esc(r.kelas)}</td><td><span class="badge">${esc(r.status)}</span></td><td>${esc(r.checkIn)}</td><td>${esc(r.checkOut)}</td></tr>`
+      ).join('') || '<tr><td colspan="6" class="muted">Belum ada data siswa.</td></tr>';
+    }
+
+    async function loadViol() {
+      const res = await api('/api/violations');
+      if (res.rewards) {
+        $('rwType').innerHTML = res.rewards.map(r => `<option value="${esc(r.id)}">[${esc(r.group)}] ${esc(r.title)} (-${r.points} pt)</option>`).join('');
+      }
+      $('violBody').innerHTML = (res.violations || []).map(v => `
+        <tr>
+          <td>${esc(v.createdAt)}</td>
+          <td>${esc(v.name)} (${esc(v.kelas)})</td>
+          <td>${esc(v.ruleTitle)}<div class="muted">${esc(v.notes || '')}</div></td>
+          <td>${v.points > 0 ? '+' + v.points : v.points}</td>
+          <td><span class="badge">${esc(v.status)}</span></td>
+          <td>${isAdmin && v.status === 'pending'
+            ? `<button data-acc="${esc(v.id)}" class="primary">ACC</button> <button data-rej="${esc(v.id)}" class="danger">Tolak</button>`
+            : '-'}</td>
+        </tr>
+      `).join('') || '<tr><td colspan="6" class="muted">Belum ada catatan.</td></tr>';
+    }
+
+    async function loadReports() {
+      if (!isAdmin) return;
+      const res = await api('/api/reports');
+      reportsCache = res.reports || [];
+      $('repBody').innerHTML = reportsCache.map((r, ri) => {
+        const links = (r.evidences || []).map((e, ei) => e.url && e.url.startsWith('data:') ? `<button type="button" data-ev="${ri}:${ei}" style="padding:4px 8px;font-size:12px;margin:2px 0;">[Lihat: ${esc(e.name)}]</button>` : `<a href="${esc(e.url)}" target="_blank" style="color:#8ab4f8;">[${esc(e.name)}]</a>`).join(' ');
+        return `
+          <tr>
+            <td>${esc(r.createdAt)}</td>
+            <td><strong>${esc(r.reporterName)}</strong><div class="muted">${esc(r.reporterId)}</div></td>
+            <td>${esc(r.reportedName)} (${esc(r.reportedNisn || '-')})</td>
+            <td>${esc(r.chronology)}<div>${links || '<span class="muted">Tanpa lampiran</span>'}</div></td>
+            <td>${r.status === 'pending'
+              ? `<button data-vrep="${esc(r.id)}" class="primary">Valid (+Poin)</button> <button data-rrep="${esc(r.id)}" class="danger">Tolak</button>`
+              : `<span class="badge">${esc(r.status)}</span>`}</td>
+          </tr>
+        `;
+      }).join('') || '<tr><td colspan="5" class="muted">Belum ada laporan.</td></tr>';
+    }
+
+    async function loadUsersAndInvites() {
+      const res = await api('/api/users');
+      membersCache = res.members || [];
+      $('rwStudent').innerHTML = membersCache.map(m => `<option value="${esc(m.nisn)}">${esc(m.name)} (${esc(m.kelas || '-')} • ${m.points} pt)</option>`).join('');
+
+      $('memBody').innerHTML = membersCache.map(m => `
+        <tr>
+          <td>${esc(m.nisn)}</td>
+          <td><strong>${esc(m.name)}</strong><div class="muted">${esc(m.kelas || '-')} • UID: ${esc(m.uid || '-')}</div></td>
+          <td><strong>${m.points} pt</strong><div class="muted">${esc(m.sanction?.label || 'Tertib')}</div></td>
+          <td>${isAdmin ? `<button data-editm="${esc(m.nisn)}">Edit</button> <button data-delm="${esc(m.nisn)}" class="danger">Hapus</button>` : '-'}</td>
+        </tr>
+      `).join('') || '<tr><td colspan="4" class="muted">Belum ada data.</td></tr>';
+
+      $('pendBody').innerHTML = (res.pending || []).map(p => `
+        <tr>
+          <td>${esc(p.nisn)}</td>
+          <td><strong>${esc(p.name)}</strong> (${esc(p.kelas)})</td>
+          <td><button data-accp="${esc(p.nisn)}" class="primary">ACC</button> <button data-rejp="${esc(p.nisn)}" class="danger">Tolak</button></td>
+        </tr>
+      `).join('') || '<tr><td colspan="3" class="muted">Tidak ada antrean pendaftar.</td></tr>';
+
+      $('invBody').innerHTML = (res.invites || []).map(i => {
+        const expired = Date.now() > i.expiresAt;
+        const full = i.used >= i.quota;
+        const status = !i.active ? 'Dicabut' : (expired ? 'Kedaluwarsa' : (full ? 'Penuh' : 'Aktif'));
+        const url = `${location.origin}/register.html?code=${i.code}`;
+        return `
+          <tr>
+            <td><code>${esc(i.code)}</code></td>
+            <td>${esc(i.kelas)}</td>
+            <td>${i.used} / ${i.quota}</td>
+            <td><span class="badge">${status}</span></td>
+            <td>
+              <button data-copyinv="${esc(url)}">Salin Link</button>
+              ${i.active ? `<button data-revinv="${esc(i.code)}" class="danger">Tutup</button>` : ''}
+            </td>
+          </tr>
+        `;
+      }).join('') || '<tr><td colspan="5" class="muted">Belum ada link undangan.</td></tr>';
+    }
+
+    $('staffForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const confirmPassword = await askModal('Masukkan password akun Anda sendiri untuk menyimpan staff:', { type: 'password' });
+      if (!confirmPassword) return;
+      const u = $('sUser').value.trim().toLowerCase();
+      const p = $('sPass').value;
+      try {
+        await api('/api/auth', { method: 'POST', body: { action: 'save_staff', username: u, fullName: $('sName').value, role: $('sRole').value, password: p, confirmPassword } });
+        notify(`Akun staff ${u} tersimpan.`);
+        showCred(u, p);
+        $('staffForm').reset();
+        loadStaffAndAudit();
+      } catch (err) { notify(`Gagal: ${err.message}`); }
+    };
+
+    $('staffBody').onclick = async (e) => {
+      const rst = e.target.closest('[data-rsts]');
+      const tog = e.target.closest('[data-togs]');
+      const del = e.target.closest('[data-dels]');
+      if (!rst && !tog && !del) return;
+
+      const confirmPassword = await askModal('Masukkan password akun Anda sendiri:', { type: 'password' });
+      if (!confirmPassword) return;
+
+      try {
+        if (rst) {
+          const newPassword = await askModal(`Masukkan password baru untuk ${rst.dataset.rsts} (min 4 karakter):`, { type: 'password' });
+          if (!newPassword) return;
+          await api('/api/auth', { method: 'POST', body: { action: 'reset_staff_password', username: rst.dataset.rsts, newPassword, confirmPassword } });
+          notify(`Password ${rst.dataset.rsts} berhasil direset.`);
+          showCred(rst.dataset.rsts, newPassword);
+        } else if (tog) {
+          await api('/api/auth', { method: 'POST', body: { action: 'toggle_staff', username: tog.dataset.togs, confirmPassword } });
+          notify(`Status akun ${tog.dataset.togs} diperbarui.`);
+        } else if (del) {
+          await api('/api/auth', { method: 'POST', body: { action: 'delete_staff', username: del.dataset.dels, confirmPassword } });
+          notify(`Akun ${del.dataset.dels} dihapus.`);
+        }
+        loadStaffAndAudit();
+      } catch (err) { notify(`Gagal: ${err.message}`); }
+    };
+
+    $('btnLoadAtt').onclick = loadAtt;
+    $('btnCopyWa').onclick = async () => {
+      const kls = $('attKelas').value.trim().toUpperCase() || 'SEMUA KELAS';
+      const hadir = lastAttRecords.filter(r => r.status === 'HADIR').length;
+      const telat = lastAttRecords.filter(r => r.status === 'TERLAMBAT');
+      const sakitIzin = lastAttRecords.filter(r => ['SAKIT', 'IZIN'].includes(r.status));
+      const belum = lastAttRecords.filter(r => ['BELUM_TAP', 'ALFA'].includes(r.status));
+      const text = `*REKAP ABSENSI ${kls}*\nTanggal: ${$('attDate').value}\nHadir Tepat Waktu: ${hadir}\nTerlambat (${telat.length}): ${telat.map(x => x.name).join(', ') || '-'}\nSakit/Izin (${sakitIzin.length}): ${sakitIzin.map(x => `${x.name} (${x.status})`).join(', ') || '-'}\nBelum Tap/Alfa (${belum.length}): ${belum.map(x => x.name).join(', ') || '-'}`;
+      await navigator.clipboard.writeText(text);
+      notify('Format rekap WhatsApp disalin ke clipboard!');
+    };
+
+    $('btnCsvAtt').onclick = async () => {
+      const qs = new URLSearchParams({ format: 'csv', date: $('attDate').value, kelas: $('attKelas').value.trim() });
+      const res = await fetch(`/api/attendance?${qs}`, { headers: { 'x-auth-token': getToken() } });
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `rekap-${$('attDate').value}.csv`;
+      a.click();
+    };
+
+    $('rewardForm').onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await api('/api/violations', { method: 'POST', body: { action: 'add_reward', nisn: $('rwStudent').value, rewardId: $('rwType').value } });
+        notify('Penghargaan dicatat & poin dikurangi.');
+        loadViol(); loadUsersAndInvites();
+      } catch (err) { notify(`Gagal: ${err.message}`); }
+    };
+
+    $('inviteForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const res = await api('/api/users', { method: 'POST', body: { action: 'create_invite', kelas: $('invKelas').value, quota: $('invQuota').value, hours: $('invHours').value } });
+      const url = `${location.origin}/register.html?code=${res.invite.code}`;
+      $('qrPreviewWrap').hidden = false;
+      $('invUrlText').textContent = url;
+      if (window.QRCode) { $('invQrBox').innerHTML = ''; new window.QRCode($('invQrBox'), { text: url, width: 150, height: 150 }); }
+      notify(`Link kelas ${res.invite.kelas} dibuat!`);
+      loadUsersAndInvites();
+    };
+
+    $('btnAccAll').onclick = async () => {
+      const r = await api('/api/users', { method: 'POST', body: { action: 'approve_all_pending' } });
+      notify(`${r.count} pendaftar disetujui.`);
+      loadUsersAndInvites(); loadAtt();
+    };
+
+    $('pendBody').onclick = async (e) => {
+      const acc = e.target.closest('[data-accp]');
+      const rej = e.target.closest('[data-rejp]');
+      if (!acc && !rej) return;
+      await api('/api/users', { method: 'POST', body: { action: acc ? 'approve_pending' : 'reject_pending', nisn: (acc || rej).dataset.accp || rej.dataset.rejp } });
+      loadUsersAndInvites(); loadAtt();
+    };
+
+    $('invBody').onclick = async (e) => {
+      const cp = e.target.closest('[data-copyinv]');
+      if (cp) { await navigator.clipboard.writeText(cp.dataset.copyinv); notify('Link undangan disalin!'); return; }
+      const rv = e.target.closest('[data-revinv]');
+      if (rv) { await api('/api/users', { method: 'POST', body: { action: 'revoke_invite', code: rv.dataset.revinv } }); loadUsersAndInvites(); }
+    };
+
+    $('memBody').onclick = async (e) => {
+      const ed = e.target.closest('[data-editm]');
+      if (ed) {
+        const m = membersCache.find(x => x.nisn === ed.dataset.editm);
+        if (m) { $('mNisn').value = m.nisn; $('mName').value = m.name; $('mKelas').value = m.kelas; $('mUid').value = m.uid; $('mPin').value = ''; window.scrollTo(0, 0); }
+        return;
+      }
+      const dl = e.target.closest('[data-delm]');
+      if (dl && confirm(`Hapus siswa ${dl.dataset.delm}?`)) {
+        await api('/api/users', { method: 'POST', body: { action: 'delete', nisn: dl.dataset.delm } });
+        loadUsersAndInvites(); loadAtt();
+      }
+    };
+
+    $('csvFile').onchange = async (e) => {
+      const f = e.target.files?.[0];
+      if (!f) return;
+      const lines = (await f.text()).split(/\r?\n/).filter(Boolean);
+      const rows = lines.slice(1).map(l => {
+        const [nisn, name, kelas, uid] = l.split(',').map(s => s?.replace(/^"|"$/g, '').trim());
+        return { nisn, name, kelas, uid };
+      });
+      const r = await api('/api/users', { method: 'POST', body: { action: 'bulk_import', rows } });
+      notify(`Berhasil import ${r.imported} data dari CSV.`);
+      loadUsersAndInvites(); loadAtt();
+    };
+
+    $('violBody').onclick = async (e) => {
+      const acc = e.target.closest('[data-acc]');
+      const rej = e.target.closest('[data-rej]');
+      if (!acc && !rej) return;
+      await api('/api/violations', { method: 'POST', body: { action: 'review', id: (acc || rej).dataset.acc || rej.dataset.rej, decision: acc ? 'approved' : 'rejected' } });
+      loadViol(); loadUsersAndInvites();
+    };
+
+    $('evClose').onclick = () => $('evModal').close();
+    $('repBody').onclick = async (e) => {
+      const evBtn = e.target.closest('[data-ev]');
+      if (evBtn) {
+        const [ri, ei] = evBtn.dataset.ev.split(':').map(Number);
+        const ev = reportsCache[ri]?.evidences?.[ei];
+        if (!ev) return;
+        $('evTitle').textContent = ev.name || 'Lampiran';
+        $('evDl').href = ev.url;
+        $('evDl').download = ev.name || 'bukti';
+        const t = String(ev.type || '');
+        if (t.startsWith('image/') || ev.url.startsWith('data:image/')) {
+          $('evBody').innerHTML = `<img src="${ev.url}" style="max-width:100%;max-height:65vh;border-radius:6px;" />`;
+        } else if (t.startsWith('video/')) {
+          $('evBody').innerHTML = `<video src="${ev.url}" controls style="max-width:100%;max-height:65vh;"></video>`;
+        } else if (t.startsWith('audio/')) {
+          $('evBody').innerHTML = `<audio src="${ev.url}" controls style="width:100%;"></audio>`;
+        } else {
+          $('evBody').innerHTML = '<p class="muted">Pratinjau tidak tersedia. Gunakan tombol Download di bawah.</p>';
+        }
+        $('evModal').showModal();
+        return;
+      }
+      const vBtn = e.target.closest('[data-vrep]');
+      const rBtn = e.target.closest('[data-rrep]');
+      if (!vBtn && !rBtn) return;
+      const pts = vBtn ? Number(await askModal('Masukkan jumlah poin pelanggaran:', { type: 'number', defaultVal: '20' }) || 0) : 0;
+      await api('/api/reports', { method: 'POST', body: { action: 'verify', id: vBtn ? vBtn.dataset.vrep : rBtn.dataset.rrep, decision: vBtn ? 'valid' : 'rejected', points: pts } });
+      loadReports(); loadViol(); loadUsersAndInvites();
+    };
+
+    $('memberForm').onsubmit = async (e) => {
+      e.preventDefault();
+      await api('/api/users', { method: 'POST', body: { action: 'save', nisn: $('mNisn').value, name: $('mName').value, kelas: $('mKelas').value, uid: $('mUid').value, pin: $('mPin').value } });
+      notify('Data anggota tersimpan.');
+      $('memberForm').reset();
+      loadUsersAndInvites(); loadAtt();
+    };
+
+    $('btnResetYear').onclick = async () => {
+      if (!confirm('Reset seluruh poin siswa menjadi 0?')) return;
+      const r = await api('/api/violations', { method: 'POST', body: { action: 'reset_year' } });
+      notify(`Berhasil reset poin ${r.resetCount} anggota.`);
+      loadUsersAndInvites();
+    };
+
+    async function loadDevicesAndWifi() {
+      if (!isRoot) return;
+      $('espRootWrap').hidden = false;
+      try {
+        const res = await api('/api/device');
+        const devs = res.devices || [];
+        $('devBody').innerHTML = devs.map(d => `
+          <tr>
+            <td><code>${esc(d.deviceId)}</code></td>
+            <td>${esc(d.ip || '-')}</td>
+            <td><span class="badge">${Number(d.bufferCount || 0)} data</span></td>
+            <td><code>${esc(d.lastUid || '-')}</code></td>
+            <td>${esc(d.lastSeen || '-')}</td>
+          </tr>
+        `).join('') || '<tr><td colspan="5" class="muted">Belum ada alat ESP32 yang terhubung.</td></tr>';
+
+        const w = res.wifi || {};
+        $('wp1s').value = w.p1_ssid || ''; $('wp1p').value = w.p1_pass || '';
+        $('wp2s').value = w.p2_ssid || ''; $('wp2p').value = w.p2_pass || '';
+        $('wb1s').value = w.b1_ssid || ''; $('wb1p').value = w.b1_pass || '';
+        $('wb2s').value = w.b2_ssid || ''; $('wb2p').value = w.b2_pass || '';
+        $('wb3s').value = w.b3_ssid || ''; $('wb3p').value = w.b3_pass || '';
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    $('btnRefDev').onclick = loadDevicesAndWifi;
+    $('wifiForm').onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await api('/api/device', {
+          method: 'POST',
+          body: {
+            action: 'save_wifi',
+            p1_ssid: $('wp1s').value, p1_pass: $('wp1p').value,
+            p2_ssid: $('wp2s').value, p2_pass: $('wp2p').value,
+            b1_ssid: $('wb1s').value, b1_pass: $('wb1p').value,
+            b2_ssid: $('wb2s').value, b2_pass: $('wb2p').value,
+            b3_ssid: $('wb3s').value, b3_pass: $('wb3p').value
+          }
+        });
+        notify('Konfigurasi Multi-WiFi tersimpan! ESP32 akan menyinkronkan otomatis.');
+      } catch (err) {
+        notify(`Gagal: ${err.message}`);
+      }
+    };
+
+    let scanTimer = null;
+    async function stopScanMode(notifyServer = false) {
+      if (scanTimer) { clearInterval(scanTimer); scanTimer = null; }
+      $('btnScanUid').textContent = 'Scan ESP32';
+      $('scanUidHint').hidden = true;
+      if (notifyServer) await api('/api/device', { method: 'POST', body: { action: 'set_reg_mode', enabled: false } }).catch(() => {});
+    }
+
+    $('btnScanUid').onclick = async () => {
+      if (scanTimer) return stopScanMode(true);
+      try {
+        await api('/api/device', { method: 'POST', body: { action: 'set_reg_mode', enabled: true } });
+        $('btnScanUid').textContent = 'Batal Scan';
+        $('scanUidHint').hidden = false;
+        scanTimer = setInterval(async () => {
+          try {
+            const r = await api('/api/device?action=poll_uid');
+            if (r.pending && r.pending.uid) {
+              $('mUid').value = r.pending.uid;
+              await stopScanMode(false);
+              notify(`UID ${r.pending.uid} tertangkap dari ${r.pending.deviceId}! Silakan lengkapi NISN & Nama.`);
+              $('mNisn').focus();
+            }
+          } catch {}
+        }, 1500);
+      } catch (err) { notify(`Gagal: ${err.message}`); }
+    };
+
+    $('btnClearUnk').onclick = async () => {
+      if (!confirm('Bersihkan seluruh log kartu tidak dikenal?')) return;
+      await api('/api/device', { method: 'POST', body: { action: 'clear_unknown' } });
+      notify('Log kartu tidak dikenal dibersihkan.');
+      loadUnknownLogs();
+    };
+
+    $('unkBody').onclick = (e) => {
+      const btn = e.target.closest('[data-useuid]');
+      if (!btn) return;
+      $('mUid').value = btn.dataset.useuid;
+      $('mNisn').focus();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      notify(`UID ${btn.dataset.useuid} dimasukkan ke form. Lengkapi NISN & Nama.`);
+    };
+
+    async function loadUnknownLogs() {
+      if (!isAdmin) return;
+      if (isRoot) $('critLogWrap').hidden = false;
+      try {
+        const res = await api('/api/device');
+        $('unkBody').innerHTML = (res.unknownLogs || []).map(u => `
+          <tr>
+            <td>${esc(u.time)}</td>
+            <td><code>${esc(u.deviceId || '-')}</code></td>
+            <td><code>${esc(u.uid)}</code></td>
+            <td><button type="button" data-useuid="${esc(u.uid)}" class="primary">Pakai UID</button></td>
+          </tr>
+        `).join('') || '<tr><td colspan="4" class="muted">Belum ada kartu tidak dikenal.</td></tr>';
+      } catch {}
+    }
+
+    $('critLogWrap').onclick = async (e) => {
+      const btn = e.target.closest('[data-clog]');
+      if (!btn) return;
+      const target = btn.dataset.clog;
+      const date = $('attDate').value;
+      const label = target === 'attendance'
+        ? `Masukkan password Root Admin untuk MENGHAPUS Absensi tanggal ${date}:`
+        : `Masukkan password Root Admin untuk MENGHAPUS log ${target}:`;
+      const confirmPassword = await askModal(label, { type: 'password' });
+      if (!confirmPassword) return;
+      try {
+        await api('/api/auth', { method: 'POST', body: { action: 'clear_critical_log', target, date, confirmPassword } });
+        notify(`Log ${target} berhasil dibersihkan.`);
+        loadAtt(); loadViol(); loadReports(); loadStaffAndAudit();
+      } catch (err) { notify(`Gagal: ${err.message}`); }
+    };
+
+    if (user) {
+      $('aUser').textContent = `${user.fullName} (${user.role})`;
+      loadAtt(); loadViol(); loadReports(); loadUsersAndInvites(); loadStaffAndAudit(); loadDevicesAndWifi(); loadUnknownLogs();
+    }
+  </script>
+
+  <dialog id="evModal" style="background:#171a21;color:#e9ecf1;border:1px solid #3c4454;border-radius:10px;padding:16px;max-width:92vw;width:480px;">
+    <div class="row between" style="margin-bottom:10px;">
+      <strong id="evTitle" style="word-break:break-all;">Pratinjau Bukti</strong>
+      <button type="button" id="evClose">Tutup</button>
+    </div>
+    <div id="evBody" style="text-align:center;margin-bottom:12px;"></div>
+    <a id="evDl" download style="display:inline-block;padding:8px 14px;background:#f2f4f8;color:#0f1115;border-radius:7px;text-decoration:none;font-weight:600;">Download File</a>
+  </dialog>
+
+  <dialog id="promptModal" style="background:#171a21;color:#e9ecf1;border:1px solid #3c4454;border-radius:10px;padding:16px;max-width:92vw;width:380px;">
+    <form id="promptForm">
+      <h3 id="promptTitle" style="margin-bottom:8px;">Konfirmasi</h3>
+      <p id="promptLabel" class="muted" style="margin-top:0;"></p>
+      <input id="promptInput" required />
+      <div class="row between" style="margin-top:8px;">
+        <button type="button" id="promptCancel">Batal</button>
+        <button type="submit" class="primary">OK</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "name": "kesiswaan-smada",
+  "version": "2.0.0",
+  "type": "module",
+  "dependencies": {
+    "@upstash/redis": "^1.34.3"
+  }
+}

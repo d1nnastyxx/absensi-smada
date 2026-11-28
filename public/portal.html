@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portal Siswa/Guru — Kesiswaan</title>
+  <link rel="stylesheet" href="/app.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card row between">
+      <div>
+        <h2 id="pName">Memuat...</h2>
+        <div id="pMeta" class="muted">-</div>
+      </div>
+      <div class="row">
+        <span id="pPoints" class="badge">0 / 250 Poin</span>
+        <button id="btnOut">Keluar</button>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- QR Lupa Kartu -->
+      <div class="card">
+        <h3>QR Absen (Alternatif Lupa Kartu)</h3>
+        <p class="muted">Tunjukkan QR ini ke petugas gerbang/tatib jika lupa membawa kartu RFID.</p>
+        <div id="qrBox" style="background:#fff;padding:12px;display:inline-block;border-radius:8px;"></div>
+      </div>
+
+      <!-- Pelaporan Rahasia -->
+      <div class="card">
+        <h3>Lapor Pelanggaran (Rahasia)</h3>
+        <p class="muted">Identitas pelapor hanya dapat dilihat oleh Waka Kesiswaan (Super Admin).</p>
+        <div id="repMsg" class="msg" hidden></div>
+        <form id="repForm">
+          <label>NISN Terlapor (opsional jika hafal)</label>
+          <input id="repNisn" placeholder="Kosongkan jika hanya tahu nama" />
+          <label>Nama & Kelas Terlapor</label>
+          <input id="repName" required placeholder="Contoh: Budi - XI-A" />
+          <label>Kronologi Kejadian</label>
+          <textarea id="repChrono" rows="3" required placeholder="Jelaskan waktu, tempat, dan kejadian..."></textarea>
+          <label>Bukti (Foto/Video/Audio/Dokumen — maks 5 file ke Drive)</label>
+          <input id="repFiles" type="file" multiple />
+          <button id="btnRepSubmit" class="primary" type="submit">Kirim Laporan Rahasia</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Riwayat Pelanggaran Saya</h3>
+      <div class="table-wrap"><table><thead><tr><th>Waktu</th><th>Pelanggaran</th><th>Poin</th></tr></thead><tbody id="myViolBody"></tbody></table></div>
+    </div>
+
+    <div class="card">
+      <h3>Riwayat Absensi Saya</h3>
+      <div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Status</th><th>Masuk</th><th>Pulang</th></tr></thead><tbody id="myAttBody"></tbody></table></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { $, esc, api, requireRole, logout, uploadEvidenceToDrive } from '/app.js';
+    const user = requireRole(['user']);
+    $('btnOut').onclick = logout;
+
+    async function load() {
+      const [uRes, vRes, aRes] = await Promise.all([
+        api('/api/users'), api('/api/violations'), api('/api/attendance')
+      ]);
+      const me = uRes.me;
+      $('pName').textContent = me.name;
+      $('pMeta').textContent = `NISN/NIP: ${me.nisn} • Kelas: ${me.kelas || '-'}`;
+      $('pPoints').textContent = `${me.points} / ${vRes.maxPoints} Poin`;
+
+      if (window.QRCode) {
+        $('qrBox').innerHTML = '';
+        new window.QRCode($('qrBox'), { text: me.nisn, width: 150, height: 150 });
+      }
+
+      $('myViolBody').innerHTML = (vRes.violations || []).map(v =>
+        `<tr><td>${esc(v.createdAt)}</td><td>${esc(v.ruleTitle)}</td><td>+${v.points}</td></tr>`
+      ).join('') || '<tr><td colspan="3" class="muted">Bersih, belum ada pelanggaran.</td></tr>';
+
+      $('myAttBody').innerHTML = (aRes.history || []).map(a =>
+        `<tr><td>${esc(a.date)}</td><td><span class="badge">${esc(a.status)}</span></td><td>${esc(a.checkIn)}</td><td>${esc(a.checkOut || '-')}</td></tr>`
+      ).join('') || '<tr><td colspan="4" class="muted">Belum ada riwayat absensi.</td></tr>';
+    }
+
+    $('repForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = $('btnRepSubmit');
+      const msg = $('repMsg');
+      btn.disabled = true;
+      msg.hidden = false;
+      msg.textContent = 'Mengunggah bukti & mengirim laporan...';
+
+      try {
+        const files = Array.from($('repFiles').files || []).slice(0, 5);
+        const evidences = [];
+        for (const f of files) {
+          msg.textContent = `Mengunggah ${f.name} ke Google Drive...`;
+          evidences.push(await uploadEvidenceToDrive(f));
+        }
+        await api('/api/reports', {
+          method: 'POST',
+          body: {
+            action: 'submit',
+            reportedNisn: $('repNisn').value.trim(),
+            reportedName: $('repName').value.trim(),
+            chronology: $('repChrono').value.trim(),
+            evidences
+          }
+        });
+        msg.textContent = 'Laporan rahasia berhasil dikirim ke Waka Kesiswaan.';
+        $('repForm').reset();
+      } catch (err) {
+        msg.textContent = `Gagal: ${err.message}`;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    if (user) load();
+  </script>
+</body>
+</html>

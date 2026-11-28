@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tim Tatib & UKS — Kesiswaan</title>
+  <link rel="stylesheet" href="/app.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="card row between">
+      <div><h2>Panel Tim Tatib & UKS</h2><div id="tUser" class="muted">-</div></div>
+      <button id="btnOut">Keluar</button>
+    </div>
+
+    <div id="tMsg" class="msg" hidden></div>
+
+    <div class="grid-2">
+      <!-- Input Sakit / Izin / Alfa / QR Lupa Kartu -->
+      <div class="card">
+        <h3>Input Absensi Manual / QR Lupa Kartu</h3>
+        <form id="attForm">
+          <label>Siswa</label>
+          <select id="attStudent" required></select>
+          <label>Tindakan</label>
+          <select id="attStatus">
+            <option value="TAP_QR">Absen Masuk/Pulang (QR Lupa Kartu)</option>
+            <option value="SAKIT">Sakit (Surat UKS/Kelas)</option>
+            <option value="IZIN">Izin</option>
+            <option value="ALFA">Alfa</option>
+          </select>
+          <label>Keterangan</label>
+          <input id="attNotes" placeholder="Opsional (misal: surat dititipkan di UKS)" />
+          <button class="primary" type="submit">Simpan Kehadiran</button>
+        </form>
+      </div>
+
+      <!-- Ajukan Pelanggaran ke Waka Kesiswaan -->
+      <div class="card">
+        <h3>Ajukan Pelanggaran (Menunggu ACC Waka)</h3>
+        <form id="violForm">
+          <label>Siswa</label>
+          <select id="violStudent" required></select>
+          <label>Jenis Pelanggaran</label>
+          <select id="violRule" required></select>
+          <label>Catatan Lapangan</label>
+          <textarea id="violNotes" rows="2" placeholder="Lokasi / keterangan singkat..."></textarea>
+          <button class="primary" type="submit">Ajukan ke Waka Kesiswaan</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { $, esc, api, requireRole, logout } from '/app.js';
+    const user = requireRole(['tatib', 'super_admin']);
+    $('btnOut').onclick = logout;
+    let rules = [];
+
+    const notify = (txt) => { $('tMsg').textContent = txt; $('tMsg').hidden = false; };
+
+    async function load() {
+      $('tUser').textContent = `${user.fullName} (${user.role})`;
+      const [uRes, vRes] = await Promise.all([api('/api/users'), api('/api/violations')]);
+      rules = vRes.rules || [];
+      const opts = (uRes.members || []).map(m => `<option value="${esc(m.nisn)}">${esc(m.name)} (${esc(m.kelas || '-')})</option>`).join('');
+      $('attStudent').innerHTML = opts;
+      $('violStudent').innerHTML = opts;
+      $('violRule').innerHTML = rules.map(r => `<option value="${esc(r.id)}">[${esc(r.category)}] ${esc(r.title)} (+${r.points} pt)</option>`).join('');
+    }
+
+    $('attForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nisn = $('attStudent').value;
+      const st = $('attStatus').value;
+      try {
+        if (st === 'TAP_QR') {
+          const r = await api('/api/attendance', { method: 'POST', body: { action: 'tap', nisn } });
+          notify(`QR Absen: ${r.status} ${r.type || ''} - ${r.name || ''} (${r.message || r.time || ''})`);
+        } else {
+          await api('/api/attendance', { method: 'POST', body: { action: 'manual', nisn, status: st, notes: $('attNotes').value } });
+          notify(`Status ${st} berhasil dicatat.`);
+        }
+      } catch (err) { notify(`Error: ${err.message}`); }
+    });
+
+    $('violForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const rule = rules.find(r => r.id === $('violRule').value);
+      try {
+        await api('/api/violations', {
+          method: 'POST',
+          body: { action: 'submit', nisn: $('violStudent').value, ruleTitle: rule.title, points: rule.points, notes: $('violNotes').value }
+        });
+        notify('Pelanggaran diajukan ke Waka Kesiswaan untuk ACC.');
+        $('violNotes').value = '';
+      } catch (err) { notify(`Error: ${err.message}`); }
+    });
+
+    if (user) load();
+  </script>
+</body>
+</html>

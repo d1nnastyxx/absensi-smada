@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — Kesiswaan SMADA v2</title>
+  <link rel="stylesheet" href="/app.css" />
+</head>
+<body>
+  <div class="wrap" style="max-width:420px;padding-top:64px;">
+    <div class="card">
+      <h2>Sistem Kesiswaan v2</h2>
+      <p class="muted">Masuk menggunakan akun Staff (Username + Password) atau Siswa/Guru (NISN + PIN).</p>
+      <div id="errBox" class="msg" hidden></div>
+      <form id="loginForm">
+        <label>Username / NISN</label>
+        <input id="idInput" required placeholder="admin / username / NISN" />
+        <label>Password / PIN</label>
+        <input id="secInput" type="password" required placeholder="Password atau PIN" />
+        <button class="primary" type="submit" style="width:100%;">Masuk</button>
+      </form>
+    </div>
+  </div>
+  <script type="module">
+    import { $, api, setAuth, getUser, getToken } from '/app.js';
+    const goHome = (u) => {
+      if (u.role === 'user') location.replace('/portal.html');
+      else if (u.role === 'tatib') location.replace('/tatib.html');
+      else location.replace('/admin.html');
+    };
+    if (getToken() && getUser()) goHome(getUser());
+
+    $('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      $('errBox').hidden = true;
+      try {
+        const res = await api('/api/auth', {
+          method: 'POST',
+          body: { action: 'login', identifier: $('idInput').value.trim(), secret: $('secInput').value }
+        });
+        setAuth(res.token, res.user);
+        goHome(res.user);
+      } catch (err) {
+        $('errBox').textContent = err.message;
+        $('errBox').hidden = false;
+      }
+    });
+  </script>
+</body>
+</html>
